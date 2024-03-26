@@ -258,7 +258,7 @@ export default async function Home({ searchParams }: NextServerPageProps) {
           Guess the distance and direction from
         </div>
         <div tw="flex flex-row items-center w-full" style={{ gap: "2rem" }}>
-          <span>{pair.sourceCountry}</span>
+          <span>{pair.sourceCountry.name}</span>
           {filler}
         </div>
         <div tw="flex flex-row items-center w-full" style={{ gap: "2rem" }}>
@@ -276,7 +276,7 @@ export default async function Home({ searchParams }: NextServerPageProps) {
         </div>
         <div tw="flex flex-row items-center w-full" style={{ gap: "2rem" }}>
           {filler}
-          <span>{pair.destinationCountry}</span>
+          <span>{pair.destinationCountry.name}</span>
         </div>
       </div>
     );
@@ -370,8 +370,8 @@ export default async function Home({ searchParams }: NextServerPageProps) {
                 {createStarsString(guessRating.stars)}
               </div>
               <div className="flex flex-row flex-wrap font-tomato">
-                The distance from {guessRating.pair.sourceCountry} to{" "}
-                {guessRating.pair.destinationCountry} is{" "}
+                The distance from {guessRating.pair.sourceCountry.name} to{" "}
+                {guessRating.pair.destinationCountry.name} is{" "}
                 {guessRating.correctDistance.toLocaleString()} km and{" "}
                 {guessRating.correctDirection.key}{" "}
                 {guessRating.correctDirection.emoji}

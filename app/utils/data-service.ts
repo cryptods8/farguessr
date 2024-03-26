@@ -1,6 +1,8 @@
 import seedrandom from "seedrandom";
+import { getPreciseDistance, getGreatCircleBearing } from "geolib";
 
 import data from "../../data/countries.json";
+import { coords, CountryCoords } from "../../data/coords";
 
 const seedSalt = process.env.SEED_SALT || "salt";
 
@@ -19,12 +21,11 @@ export interface Country {
 }
 
 export interface CountryDistancePair {
-  sourceCountry: string;
-  sourceCountryKey: string;
-  destinationCountry: string;
-  destinationCountryKey: string;
+  sourceCountry: CountryCoords;
+  destinationCountry: CountryCoords;
   distance: number;
   direction: string;
+  bearing: number;
 }
 
 export interface Direction {
@@ -51,40 +52,44 @@ export function getPairForToday(): CountryDistancePair {
   return getRandomPair(today);
 }
 
+function getDirectionFromBearing(bearing: number): string {
+  if (bearing >= 337.5 || bearing < 22.5) return "N";
+  if (bearing >= 22.5 && bearing < 67.5) return "NE";
+  if (bearing >= 67.5 && bearing < 112.5) return "E";
+  if (bearing >= 112.5 && bearing < 157.5) return "SE";
+  if (bearing >= 157.5 && bearing < 202.5) return "S";
+  if (bearing >= 202.5 && bearing < 247.5) return "SW";
+  if (bearing >= 247.5 && bearing < 292.5) return "W";
+  if (bearing >= 292.5 && bearing < 337.5) return "NW";
+  return "N";
+}
+
 export function getRandomPair(randomKey: string): CountryDistancePair {
   const rng = seedrandom(seedSalt + "/" + randomKey);
-  const sourceCountry = countries[Math.floor(rng() * countries.length)]!;
-  const destinationCountry =
-    sourceCountry.data[Math.floor(rng() * sourceCountry.data.length)]!;
 
-  return toPair(sourceCountry, destinationCountry);
-}
+  const srcCoordsIdx = Math.floor(rng() * coords.length);
+  const destCoordsIdx =
+    (Math.floor(rng() * coords.length - 1) + srcCoordsIdx + 1) % coords.length;
 
-export function getPairByKeys(
-  sourceCountryKey: string,
-  destinationCountryKey: string
-): CountryDistancePair {
-  const sourceCountry = countries.find((c) => c.key === sourceCountryKey)!;
-  const destinationCountry = sourceCountry.data.find(
-    (d) => d.countryKey === destinationCountryKey
-  )!;
+  const srcCoords = coords[srcCoordsIdx]!;
+  const destCoords = coords[destCoordsIdx]!;
 
-  return toPair(sourceCountry, destinationCountry);
-}
+  const distance = getPreciseDistance(srcCoords, destCoords) / 1000;
+  const bearing = getGreatCircleBearing(srcCoords, destCoords);
 
-function toPair(src: Country, dest: CountryDistance): CountryDistancePair {
+  const direction = getDirectionFromBearing(bearing);
   return {
-    sourceCountry: src.name,
-    sourceCountryKey: src.key,
-    destinationCountry: dest.country,
-    destinationCountryKey: dest.countryKey,
-    distance: dest.dist,
-    direction: dest.simpleDir,
+    sourceCountry: srcCoords,
+    destinationCountry: destCoords,
+    distance,
+    direction,
+    bearing,
   };
 }
 
 export function getDirectionsForSimpleDirection(
   simpleDir: string
 ): Direction[] {
+  // either [N, S, E, W] or [NE, NW, SE, SW]
   return allDirections.filter((d) => d.key.length === simpleDir.length);
 }
