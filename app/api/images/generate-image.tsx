@@ -110,7 +110,7 @@ function ImageLayout({
   message?: React.ReactNode;
 }) {
   return (
-    <div tw="flex w-full h-full justify-center items-center text-5xl relative">
+    <div tw="flex w-full h-full justify-center items-center text-5xl relative bg-white">
       <div tw="flex" style={{ fontFamily: "TomatoGrotesk" }}>
         {baseImage}
       </div>
