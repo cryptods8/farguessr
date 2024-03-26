@@ -1,5 +1,9 @@
 import seedrandom from "seedrandom";
-import { getPreciseDistance, getGreatCircleBearing } from "geolib";
+import {
+  getPreciseDistance,
+  getGreatCircleBearing,
+  computeDestinationPoint,
+} from "geolib";
 
 import data from "../../data/countries.json";
 import { coords, CountryCoords } from "../../data/coords";
@@ -108,14 +112,22 @@ export interface GuessRating {
 
 const directions = ["W", "NW", "N", "NE", "E", "SE", "S", "SW"];
 
-function getDirectionDifference(a: Direction, b: Direction): number {
+function getDirectionBearingDifference(a: Direction, b: Direction): number {
   if (a.key === b.key) {
     return 0;
   }
-  const idxDifference = Math.abs(
-    directions.indexOf(a.key) - directions.indexOf(b.key)
-  );
-  return Math.min(idxDifference, 8 - idxDifference) / 2;
+  const aIdx = directions.indexOf(a.key);
+  const bIdx = directions.indexOf(b.key);
+
+  const diff =
+    bIdx > aIdx
+      ? bIdx - aIdx > 4
+        ? bIdx - aIdx - 8
+        : bIdx - aIdx
+      : bIdx - aIdx < -3
+      ? bIdx - aIdx + 8
+      : bIdx - aIdx;
+  return diff * 45;
 }
 
 export function rateGuess(
@@ -125,18 +137,20 @@ export function rateGuess(
   guessedDirection: Direction
 ): GuessRating {
   const correctDirection = directions.find((d) => d.key === pair.direction)!;
-  const directionDifference = getDirectionDifference(
+  const bearingDifference = getDirectionBearingDifference(
     correctDirection,
     guessedDirection
   );
+  const newPoint = computeDestinationPoint(
+    pair.sourceCountry,
+    (guessedDistance % 40000) * 1000,
+    pair.bearing + (bearingDifference % 360)
+  );
   const correctDistance = pair.distance;
-  const distanceDifference =
-    directionDifference === 0
-      ? Math.abs(correctDistance - guessedDistance)
-      : directionDifference === 1
-      ? Math.sqrt(Math.pow(correctDistance, 2) + Math.pow(guessedDistance, 2))
-      : correctDistance + guessedDistance;
-  const normalizedDifference = Math.round(distanceDifference) % 40000;
+  const distanceDifference = Math.round(
+    getPreciseDistance(newPoint, pair.destinationCountry) / 1000
+  );
+  const normalizedDifference = distanceDifference; //Math.round(distanceDifference) % 40000;
   const difference = Math.min(
     normalizedDifference,
     40000 - normalizedDifference

@@ -150,9 +150,12 @@ export default async function Home({ searchParams }: NextServerPageProps) {
     const shareRedirectParams = new URLSearchParams();
     const pctgStr = guessRating.percentage.toFixed(1);
     const starsStr = createStarsString(guessRating.stars);
+    const countriesStr = `${pair!.sourceCountry.name} → ${
+      pair!.destinationCountry.name
+    }`;
     shareRedirectParams.append(
       "text",
-      `Farguessr ${randomKey}\n\n${pctgStr}%\n${starsStr}`
+      `Farguessr ${randomKey}\n${countriesStr}\n\n${pctgStr}%\n${starsStr}`
     );
     shareRedirectParams.set("embeds[]", baseUrl);
     const shareRedirectUrl = `https://warpcast.com/~/compose?${shareRedirectParams.toString()}`;
