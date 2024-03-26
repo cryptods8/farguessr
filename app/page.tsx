@@ -15,7 +15,7 @@ import { getOptions } from "./utils/satori-options";
 
 import { ShareButton } from "./share-button";
 
-const baseUrl = process.env.NEXT_PUBLIC_URL || "http://localhost:3000";
+const baseUrl = process.env.NEXT_PUBLIC_HOST || "http://localhost:3000";
 
 type Status = "INITIAL" | "STARTED" | "INVALID" | "GUESSED";
 
