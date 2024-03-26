@@ -69,7 +69,7 @@ export function getRandomPair(randomKey: string): CountryDistancePair {
 
   const srcCoordsIdx = Math.floor(rng() * coords.length);
   const destCoordsIdx =
-    (Math.floor(rng() * coords.length - 1) + srcCoordsIdx + 1) % coords.length;
+    (Math.floor(rng() * (coords.length - 1)) + srcCoordsIdx + 1) % coords.length;
 
   const srcCoords = coords[srcCoordsIdx]!;
   const destCoords = coords[destCoordsIdx]!;
