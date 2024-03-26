@@ -6,6 +6,7 @@ import {
   FrameInput,
   NextServerPageProps,
   getPreviousFrame,
+  getFrameMessage,
 } from "frames.js/next/server";
 import Link from "next/link";
 
@@ -115,14 +116,36 @@ export default async function Home({ searchParams }: NextServerPageProps) {
 
     const guessedDirection = directions![dirIndex!]!;
 
-    const redirectParams = new URLSearchParams();
-    redirectParams.append("dist", distance!.toString());
-    redirectParams.append("dir", guessedDirection.key);
-    redirectParams.append("rk", randomKey!);
-    const redirectUrl = `${baseUrl}/?${redirectParams.toString()}`;
-    const signedRedirectUrl = signUrl(redirectUrl);
+    const resultRedirectParams = new URLSearchParams();
+    resultRedirectParams.append("dist", distance!.toString());
+    resultRedirectParams.append("dir", guessedDirection.key);
+    resultRedirectParams.append("rk", randomKey!);
+    const resultRedirectUrl = `${baseUrl}/?${resultRedirectParams.toString()}`;
+    const signedResultRedirectUrl = signUrl(resultRedirectUrl);
     buttons.push(
-      <FrameButton key="button2" target={signedRedirectUrl} action="link">
+      <FrameButton key="button2" target={signedResultRedirectUrl} action="link">
+        Results
+      </FrameButton>
+    );
+
+    // https://warpcast.com/~/compose?text=Hello%20@farcaster!&embeds[]=https://farcaster.xyz
+    const guessRating = rateGuess(
+      pair!,
+      directions!,
+      distance!,
+      guessedDirection
+    );
+    const shareRedirectParams = new URLSearchParams();
+    const pctgStr = guessRating.percentage.toFixed(1);
+    const starsStr = createStarsString(guessRating.stars);
+    shareRedirectParams.append(
+      "text",
+      `Farguessr ${randomKey}\n\n${pctgStr}%\n${starsStr}`
+    );
+    shareRedirectParams.set("embeds[]", baseUrl);
+    const shareRedirectUrl = `https://warpcast.com/~/compose?${shareRedirectParams.toString()}`;
+    buttons.push(
+      <FrameButton key="button3" target={shareRedirectUrl} action="link">
         Share
       </FrameButton>
     );
