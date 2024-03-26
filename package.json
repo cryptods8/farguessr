@@ -11,12 +11,16 @@
     "update-framesjs": "yarn upgrade frames.js@latest && yarn run update-debugger"
   },
   "dependencies": {
+    "@farcaster/core": "^0.14.4",
     "@farcaster/hub-nodejs": "^0.11.4",
     "@noble/ed25519": "^2.0.0",
+    "@radix-ui/react-accordion": "^1.1.2",
     "@vercel/og": "^0.6.2",
     "@xmtp/frames-validator": "^0.5.2",
+    "clsx": "2.1.0",
     "frames.js": "^0.6.0",
     "geolib": "^3.3.4",
+    "lucide-react": "^0.344.0",
     "next": "14.1.0",
     "qrcode.react": "^3.1.0",
     "react": "^18.2.0",
@@ -25,7 +29,8 @@
     "seedrandom": "^3.0.5",
     "sharp": "0.32",
     "signed": "^2.0.3",
-    "swr": "^2.2.4"
+    "swr": "^2.2.4",
+    "tailwind-merge": "2.2.1"
   },
   "engines": {
     "node": ">=18.17.0"
