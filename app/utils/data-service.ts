@@ -74,7 +74,7 @@ export function getRandomPair(randomKey: string): CountryDistancePair {
   const srcCoords = coords[srcCoordsIdx]!;
   const destCoords = coords[destCoordsIdx]!;
 
-  const distance = getPreciseDistance(srcCoords, destCoords) / 1000;
+  const distance = Math.round(getPreciseDistance(srcCoords, destCoords) / 1000);
   const bearing = getGreatCircleBearing(srcCoords, destCoords);
 
   const direction = getDirectionFromBearing(bearing);
