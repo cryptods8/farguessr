@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 
 import * as images from "./generate-image";
 import * as countries from "../../utils/data-service";
@@ -9,14 +9,6 @@ function getRequestUrl(req: NextRequest) {
   const url = new URL(req.url);
   const search = url.searchParams.toString();
   return `${baseUrl}${url.pathname}${search ? `?${search}` : ""}`;
-}
-
-async function renderImageToRes(image: ArrayBuffer): Promise<NextResponse> {
-  const res = new NextResponse(image);
-  // Set the content type to PNG and send the response
-  res.headers.set("Content-Type", "image/png");
-  res.headers.set("Cache-Control", "max-age=10");
-  return res;
 }
 
 function verifyUrl(req: NextRequest) {
@@ -41,36 +33,27 @@ export async function GET(req: NextRequest) {
     const directions = pair
       ? countries.getDirectionsForSimpleDirection(pair.direction)
       : undefined;
-    let imageBuffer: ArrayBuffer;
     if (status === "INITIAL") {
-      imageBuffer = await images.generateInitialImage();
-    } else if (status === "STARTED") {
-      imageBuffer = await images.generateStartedImage(pair!);
-    } else if (status === "INVALID") {
-      imageBuffer = await images.generateInvalidImage(
-        pair!,
-        msg ? msg : undefined
-      );
-    } else if (status === "GUESSED") {
+      return images.generateInitialImage();
+    }
+    if (status === "STARTED") {
+      return images.generateStartedImage(pair!);
+    }
+    if (status === "INVALID") {
+      return images.generateInvalidImage(pair!, msg ? msg : undefined);
+    }
+    if (status === "GUESSED") {
       const direction = directions!.find((d) => d.key === dir)!;
-      imageBuffer = await images.generateResultImage(
+      return images.generateResultImage(
         pair!,
         directions!,
         parseInt(dist!, 10),
         direction
       );
-    } else {
-      imageBuffer = await images.generateInitialImage(
-        "Invalid image requested :/"
-      );
     }
-
-    return renderImageToRes(imageBuffer);
+    return images.generateInitialImage("Invalid image requested :/");
   } catch (e) {
     console.error(e);
-    const image = await images.generateInitialImage(
-      "Error occured: " + (e as any).message
-    );
-    return renderImageToRes(image);
+    return images.generateInitialImage("Error occured: " + (e as any).message);
   }
 }

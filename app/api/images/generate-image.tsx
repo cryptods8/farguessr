@@ -134,8 +134,7 @@ function ImageLayout({
 }
 
 async function toImage(image: React.ReactElement) {
-  const response = new ImageResponse(image, getOptions({}, "1.91:1"));
-  return await response?.arrayBuffer();
+  return new ImageResponse(image, getOptions({}, "1.91:1"));
 }
 
 export async function generateInitialImage(message?: string) {

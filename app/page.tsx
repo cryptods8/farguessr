@@ -1,14 +1,14 @@
 import {
   FrameButton,
   FrameContainer,
-  FrameElementType,
   FrameImage,
   FrameInput,
   NextServerPageProps,
   getPreviousFrame,
-  getFrameMessage,
 } from "frames.js/next/server";
+import { ClientProtocolId } from "frames.js";
 import Link from "next/link";
+// import { Message } from "@farcaster/hub-nodejs";
 
 import * as countries from "./utils/data-service";
 import {
@@ -20,6 +20,17 @@ import { signUrl, verifySignedUrl } from "./utils/signer";
 import { baseUrl } from "./utils/constants";
 
 import { ShareButton } from "./share-button";
+
+const acceptedProtocols: ClientProtocolId[] = [
+  {
+    id: "xmtp",
+    version: "vNext",
+  },
+  {
+    id: "farcaster",
+    version: "vNext",
+  },
+];
 
 type Status = "INITIAL" | "STARTED" | "INVALID" | "GUESSED";
 
@@ -83,6 +94,7 @@ export default async function Home({ searchParams }: NextServerPageProps) {
   const { inputText, buttonIndex, fid } =
     previousFrame.postBody?.untrustedData || {};
   console.log("info: state is:", state);
+  console.log("info: postBody is:", previousFrame.postBody);
 
   const {
     status,
@@ -91,7 +103,7 @@ export default async function Home({ searchParams }: NextServerPageProps) {
     dirIndex,
   } = nextFrameParams(state, { inputText, buttonIndex, fid });
 
-  const buttons: React.ReactElement<FrameElementType>[] = [];
+  const buttons = [];
   const pair = randomKey ? countries.getRandomPair(randomKey) : null;
   const directions = pair
     ? countries.getDirectionsForSimpleDirection(pair.direction)
@@ -161,7 +173,7 @@ export default async function Home({ searchParams }: NextServerPageProps) {
   const imageUrl = `${baseUrl}/api/images?${new URLSearchParams(
     imageParams
   ).toString()}`;
-  const elements: React.ReactElement<FrameElementType>[] = [
+  const elements = [
     <FrameImage key="image" aspectRatio={"1.91:1"} src={signUrl(imageUrl)} />,
   ];
   if (status === "STARTED" || status === "INVALID") {
@@ -206,6 +218,7 @@ export default async function Home({ searchParams }: NextServerPageProps) {
         pathname="/"
         state={{ status, randomKey }}
         previousFrame={previousFrame}
+        accepts={acceptedProtocols}
       >
         {elements}
       </FrameContainer>
