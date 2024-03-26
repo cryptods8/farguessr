@@ -207,7 +207,7 @@ export default async function Home({ searchParams }: NextServerPageProps) {
         message = (
           <div tw="flex flex-col items-center w-full" style={{ gap: "2rem" }}>
             <div
-              tw="flex flex-row items-center text-6xl text-amber-400 font-tomato"
+              tw="flex flex-row items-center text-6xl text-amber-400"
               style={{ fontFamily: "TomatoGrotesk" }}
             >
               {percentage.toFixed(1)}%
