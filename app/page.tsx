@@ -12,6 +12,7 @@ import Link from "next/link";
 import * as countries from "./utils/data-service";
 import { Direction, CountryDistancePair } from "./utils/data-service";
 import { getOptions } from "./utils/satori-options";
+import { signUrl, verifySignedUrl } from "./utils/signer";
 
 import { ShareButton } from "./share-button";
 
@@ -34,7 +35,20 @@ interface GuessRating {
   difference: number;
   correctDirection: Direction;
   guessedDirection: Direction;
+  percentage: number;
   stars: number;
+}
+
+const directions = ["W", "NW", "N", "NE", "E", "SE", "S", "SW"];
+
+function getDirectionDifference(a: Direction, b: Direction): number {
+  if (a.key === b.key) {
+    return 0;
+  }
+  const idxDifference = Math.abs(
+    directions.indexOf(a.key) - directions.indexOf(b.key)
+  );
+  return Math.min(idxDifference, 8 - idxDifference) / 2;
 }
 
 function rateGuess(
@@ -43,32 +57,56 @@ function rateGuess(
   guessedDistance: number,
   guessedDirectionIndex: number
 ): GuessRating {
-  const correctDistance = pair.distance;
-  const difference = Math.abs(correctDistance - guessedDistance);
-  const differencePercentage = (difference / correctDistance) * 100;
-  let stars =
-    differencePercentage < 10
-      ? 5
-      : differencePercentage < 25
-      ? 4
-      : differencePercentage < 45
-      ? 3
-      : differencePercentage < 70
-      ? 2
-      : 1;
   const correctDirectionIndex = directions.findIndex(
     (d) => d.key === pair.direction
   );
-  let directionDifference = Math.abs(
-    correctDirectionIndex - guessedDirectionIndex
-  );
-  if (directionDifference === 3) {
-    directionDifference = 1;
-  }
   const correctDirection = directions[correctDirectionIndex]!;
   const guessedDirection = directions[guessedDirectionIndex]!;
-  stars = Math.max(1, stars - directionDifference * 2);
+  const directionDifference = getDirectionDifference(
+    correctDirection,
+    guessedDirection
+  );
+  const correctDistance = pair.distance;
+  const distanceDifference =
+    directionDifference === 0
+      ? Math.abs(correctDistance - guessedDistance)
+      : directionDifference === 1
+      ? Math.sqrt(Math.pow(correctDistance, 2) + Math.pow(guessedDistance, 2))
+      : correctDistance + guessedDistance;
+  const normalizedDifference = Math.round(distanceDifference) % 40000;
+  const difference = Math.min(
+    normalizedDifference,
+    40000 - normalizedDifference
+  );
+  const tolerance = 50;
+  const toleratedDifference = Math.max(0, difference - tolerance);
+  const toleratedDistance = correctDistance * 1.2;
+  const differenceRatio = Math.min(1, toleratedDifference / toleratedDistance);
+  const differencePercentage = differenceRatio * 100;
+  const stars =
+    differencePercentage < 5
+      ? 10
+      : differencePercentage < 10
+      ? 9
+      : differencePercentage < 20
+      ? 8
+      : differencePercentage < 30
+      ? 7
+      : differencePercentage < 40
+      ? 6
+      : differencePercentage < 50
+      ? 5
+      : differencePercentage < 60
+      ? 4
+      : differencePercentage < 70
+      ? 3
+      : differencePercentage < 80
+      ? 2
+      : differencePercentage < 90
+      ? 1
+      : 0;
   return {
+    percentage: 100 - differencePercentage,
     pair,
     correctDistance,
     guessedDistance,
@@ -79,6 +117,23 @@ function rateGuess(
   };
 }
 
+function createStarsString(stars: number) {
+  let str = "";
+  const fullStars = Math.floor(stars / 2);
+  const halfStars = stars % 2 === 1;
+  for (let i = 0; i < 5; i++) {
+    // ⯪ - doesn't work, it's larger
+    str += i < fullStars ? "★" : i === fullStars && halfStars ? "★" : "☆";
+  }
+  return str;
+}
+
+function getRandomKey(type: GameType): string {
+  return type === "DAILY"
+    ? new Date().toISOString().split("T")[0]!
+    : Math.random().toString(36).substring(2);
+}
+
 // This is a react server component only
 export default async function Home({ searchParams }: NextServerPageProps) {
   const previousFrame = getPreviousFrame<State>(searchParams);
@@ -87,9 +142,10 @@ export default async function Home({ searchParams }: NextServerPageProps) {
   const prevStatus = state?.status;
   const prevType = state?.type;
   const prevRandomKey = state?.randomKey;
-  const { inputText, buttonIndex } =
+  const { inputText, buttonIndex, fid } =
     previousFrame.postBody?.untrustedData || {};
   console.log("info: state is:", state);
+  console.log("info: fid is:", fid);
 
   const buttons: React.ReactElement<FrameElementType>[] = [];
   let baseImage = null;
@@ -114,16 +170,12 @@ export default async function Home({ searchParams }: NextServerPageProps) {
     newState.status = "STARTED";
     if (prevStatus === "INITIAL") {
       newState.type = buttonIndex === 1 ? "DAILY" : "RANDOM";
-      newState.randomKey = Math.random().toString(36).substring(2);
+      newState.randomKey = getRandomKey(newState.type);
     } else {
       newState.type = prevType || "DAILY";
-      newState.randomKey =
-        prevRandomKey || Math.random().toString(36).substring(2);
+      newState.randomKey = prevRandomKey || getRandomKey(newState.type);
     }
-    const pair =
-      newState.type === "RANDOM"
-        ? countries.getRandomPair(newState.randomKey)
-        : countries.getPairForToday();
+    const pair = countries.getRandomPair(newState.randomKey);
     const directions = countries.getDirectionsForSimpleDirection(
       pair.direction
     );
@@ -148,17 +200,20 @@ export default async function Home({ searchParams }: NextServerPageProps) {
           difference,
           correctDirection,
           guessedDirection,
+          percentage,
           stars,
         } = rateGuess(pair, directions, guessedDistance, guessedDirectionIndex);
 
         message = (
           <div tw="flex flex-col items-center w-full" style={{ gap: "2rem" }}>
-            <div tw="flex flex-row items-center">
-              {[...Array(5)].map((_, index) => (
-                <div key={`star${index}`} tw="flex text-7xl text-amber-400">
-                  {index < stars ? "★" : "☆"}
-                </div>
-              ))}
+            <div
+              tw="flex flex-row items-center text-6xl text-amber-400 font-tomato"
+              style={{ fontFamily: "TomatoGrotesk" }}
+            >
+              {percentage.toFixed(1)}%
+            </div>
+            <div tw="flex flex-row items-center text-6xl text-amber-400">
+              {createStarsString(stars)}
             </div>
             <div
               tw="flex flex-row flex-wrap"
@@ -168,9 +223,9 @@ export default async function Home({ searchParams }: NextServerPageProps) {
               {correctDirection.key} {correctDirection.emoji}
             </div>
             <div tw="flex flex-row flex-wrap text-4xl">
-              You guessed {guessedDistance.toLocaleString()} km (off by{" "}
-              {difference.toLocaleString()} km) and {guessedDirection.key}{" "}
-              {guessedDirection.emoji}
+              You guessed {guessedDistance.toLocaleString()} km and{" "}
+              {guessedDirection.key} {guessedDirection.emoji} (off by{" "}
+              {difference.toLocaleString()} km)
             </div>
           </div>
         );
@@ -180,11 +235,11 @@ export default async function Home({ searchParams }: NextServerPageProps) {
         const redirectParams = new URLSearchParams();
         redirectParams.append("dist", guessedDistance.toString());
         redirectParams.append("dir", guessedDirection.key);
-        redirectParams.append("f", pair.sourceCountryKey);
-        redirectParams.append("t", pair.destinationCountryKey);
+        redirectParams.append("rk", newState.randomKey);
         const redirectUrl = `${baseUrl}/?${redirectParams.toString()}`;
+        const signedRedirectUrl = signUrl(redirectUrl);
         buttons.push(
-          <FrameButton key="button2" target={redirectUrl} action="link">
+          <FrameButton key="button2" target={signedRedirectUrl} action="link">
             Share
           </FrameButton>
         );
@@ -261,18 +316,22 @@ export default async function Home({ searchParams }: NextServerPageProps) {
   }
   buttons.forEach((button) => elements.push(button));
 
-  // redirectParams.append("dist", guessedDistance.toString());
-  // redirectParams.append("dir", guessedDirection.key);
-  // redirectParams.append("f", pair.sourceCountryKey);
-  // redirectParams.append("t", pair.destinationCountryKey);
-
-  const { dist, dir, f, t } = searchParams as {
+  const { dist, dir, rk } = searchParams as {
     [key: string]: string | undefined;
   };
 
   let guessRating: GuessRating | null = null;
-  if (dist && dir && f && t) {
-    const pair = countries.getPairByKeys(f, t);
+  let valid = false;
+  if (dist && dir && rk) {
+    const params = new URLSearchParams(searchParams as Record<string, string>);
+    const fullUrl = `${baseUrl}/?${params.toString()}`;
+    try {
+      verifySignedUrl(fullUrl);
+      valid = true;
+    } catch (e) {
+      console.error("Invalid signed URL", e);
+    }
+    const pair = countries.getRandomPair(rk);
     const directions = countries.getDirectionsForSimpleDirection(
       pair.direction
     );
@@ -297,44 +356,44 @@ export default async function Home({ searchParams }: NextServerPageProps) {
       >
         {elements}
       </FrameContainer>
-      {guessRating != null && (
-        <div
-          className="flex flex-col flex-1 gap-6"
-          style={{ maxWidth: "512px" }}
-        >
-          <div className="flex flex-col items-center text-center justify-center w-full text-3xl bg-white rounded py-12 px-8 shadow-lg gap-4">
-            <div className="flex flex-row items-center">
-              {[...Array(5)].map((_, index) => (
-                <div
-                  key={`star${index}`}
-                  className="flex text-6xl text-amber-400"
-                >
-                  {index < guessRating!.stars ? "★" : "☆"}
-                </div>
-              ))}
+      <div
+        className="flex flex-col flex-1 gap-6 w-full items-center justify-center"
+        style={{ maxWidth: "512px" }}
+      >
+        {guessRating != null && valid ? (
+          <>
+            <div className="flex flex-col items-center text-center justify-center w-full text-3xl bg-white rounded py-12 px-8 shadow-lg gap-4">
+              <div className="flex flex-row items-center text-6xl text-amber-400 font-tomato">
+                {guessRating.percentage.toFixed(1)}%
+              </div>
+              <div className="flex flex-row items-center text-5xl text-amber-400">
+                {createStarsString(guessRating.stars)}
+              </div>
+              <div className="flex flex-row flex-wrap font-tomato">
+                The distance from {guessRating.pair.sourceCountry} to{" "}
+                {guessRating.pair.destinationCountry} is{" "}
+                {guessRating.correctDistance.toLocaleString()} km and{" "}
+                {guessRating.correctDirection.key}{" "}
+                {guessRating.correctDirection.emoji}
+              </div>
+              <div className="flex flex-row flex-wrap text-base">
+                You guessed {guessRating.guessedDistance.toLocaleString()} km
+                and {guessRating.guessedDirection.key}{" "}
+                {guessRating.guessedDirection.emoji} (off by{" "}
+                {guessRating.difference.toLocaleString()} km)
+              </div>
             </div>
-            <div className="flex flex-row flex-wrap font-tomato">
-              The distance from {guessRating.pair.sourceCountry} to{" "}
-              {guessRating.pair.destinationCountry} is{" "}
-              {guessRating.correctDistance.toLocaleString()} km and{" "}
-              {guessRating.correctDirection.key}{" "}
-              {guessRating.correctDirection.emoji}
-            </div>
-            <div className="flex flex-row flex-wrap text-base">
-              You guessed {guessRating.guessedDistance.toLocaleString()} km (off
-              by {guessRating.difference.toLocaleString()} km) and{" "}
-              {guessRating.guessedDirection.key}{" "}
-              {guessRating.guessedDirection.emoji}
-            </div>
-          </div>
-          <ShareButton
-            url={baseUrl}
-            text={`Farguessr\n\n${[...Array(5)]
-              .map((_, index) => (index < guessRating!.stars ? "★" : "☆"))
-              .join("")}\n\n${baseUrl}`}
-          />
-        </div>
-      )}
+            <ShareButton
+              url={baseUrl}
+              text={`Farguessr ${rk}\n\n${guessRating.percentage.toFixed(
+                1
+              )}%\n\n${createStarsString(guessRating.stars)}\n\n${baseUrl}`}
+            />
+          </>
+        ) : (
+          <ShareButton url={baseUrl} text={`Farguessr by ds8\n\n${baseUrl}`} />
+        )}
+      </div>
       <div className="font-inter text-center mt-8 text-sm text-slate-600">
         Farguessr made by{" "}
         <Link href="https://warpcast.com/ds8" className="underline">
