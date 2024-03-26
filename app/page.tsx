@@ -387,7 +387,7 @@ export default async function Home({ searchParams }: NextServerPageProps) {
               url={baseUrl}
               text={`Farguessr ${rk}\n\n${guessRating.percentage.toFixed(
                 1
-              )}%\n\n${createStarsString(guessRating.stars)}\n\n${baseUrl}`}
+              )}%\n${createStarsString(guessRating.stars)}\n\n${baseUrl}`}
             />
           </>
         ) : (
